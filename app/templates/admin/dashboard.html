@@ -1,0 +1,495 @@
+
+{% extends "base.html" %}
+{% block header %}Panel Admin - Becarios Lowell
+
+
+
+<script>
+// FIX UNICO MENSAJE - USERNAME UNICO ADMIN
+document.addEventListener('DOMContentLoaded', function(){
+    const modal = document.getElementById('crearUsuarioModal');
+    if(!modal) return;
+    const userInput = modal.querySelector('input[name="username"]');
+    if(!userInput) return;
+
+    // Crear UN SOLO help si no existe
+    let help = document.getElementById('username_check_help');
+    if(!help){
+        help = document.createElement('small');
+        help.id = 'username_check_help';
+        help.className = 'form-text';
+        help.style.display = 'block';
+        userInput.parentNode.appendChild(help);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const usernameParam = urlParams.get('username');
+
+    function showError(msg){
+        help.textContent = '❌ ' + msg;
+        help.className = 'form-text text-danger';
+        help.style.display = 'block';
+        userInput.classList.add('is-invalid');
+        userInput.classList.remove('is-valid');
+    }
+    function showOk(msg){
+        help.textContent = '✓ ' + msg;
+        help.className = 'form-text text-success';
+        help.style.display = 'block';
+        userInput.classList.remove('is-invalid');
+        userInput.classList.add('is-valid');
+    }
+    function clearHelp(){
+        help.textContent = '';
+        help.style.display = 'none';
+        userInput.classList.remove('is-invalid','is-valid');
+    }
+
+    // Si viene error de backend ?error=username_exists
+    if(error === 'username_exists' && usernameParam){
+        userInput.value = usernameParam;
+        showError('El usuario "' + usernameParam + '" ya existe - elige otro');
+        if(typeof toastr !== 'undefined'){
+            toastr.error('El nombre de usuario "' + usernameParam + '" ya existe. Todos los nombres de usuarios deben ser únicos.', 'Usuario duplicado');
+        }
+        setTimeout(() => { $('#crearUsuarioModal').modal('show'); }, 400);
+        // Limpiar URL para que no se repita al recargar
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Live check mientras escribe
+    let timeout = null;
+    let lastChecked = '';
+    userInput.addEventListener('input', function(){
+        const val = this.value.trim();
+        if(val.length < 2){
+            clearHelp();
+            return;
+        }
+        if(val === lastChecked) return;
+        if(timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            lastChecked = val;
+            fetch('/admin/api/check-username?q=' + encodeURIComponent(val))
+                .then(r => r.json())
+                .then(data => {
+                    if(data.exists){
+                        showError('El usuario "' + data.username + '" ya existe - elige otro');
+                    } else {
+                        showOk('Usuario disponible');
+                    }
+                });
+        }, 400);
+    });
+
+    // Validar al guardar - si es invalido, bloquear y mostrar alerta unica
+    const formCrear = modal.querySelector('form');
+    if(formCrear){
+        formCrear.addEventListener('submit', function(e){
+            if(userInput.classList.contains('is-invalid')){
+                e.preventDefault();
+                showError('El usuario "' + userInput.value + '" ya existe - elige otro');
+                if(typeof toastr !== 'undefined'){
+                    toastr.error('El nombre de usuario "' + userInput.value + '" ya existe. Todos los nombres de usuarios deben ser únicos.', 'Usuario duplicado');
+                } else {
+                    alert('El nombre de usuario "' + userInput.value + '" ya existe. Todos los nombres de usuarios deben ser únicos.');
+                }
+                return false;
+            }
+        });
+    }
+
+    // Al cerrar modal, limpiar
+    $('#crearUsuarioModal').on('hidden.bs.modal', function () {
+        clearHelp();
+        // No limpiamos el valor para que pueda corregir, solo el mensaje si quiere
+    });
+});
+</script>
+
+
+<script>
+// FIX TAB PERSISTENCIA - Mantener pestaña activa despues de crear/eliminar
+document.addEventListener('DOMContentLoaded', function(){
+    const urlParams = new URLSearchParams(window.location.search);
+    let tab = urlParams.get('tab');
+    if(!tab){
+        // Si no hay tab pero hay error de username, ir a usuarios
+        const error = urlParams.get('error');
+        if(error && (error === 'username_exists' || error === 'username_empty')){
+            tab = 'usuarios';
+        }
+    }
+    if(tab){
+        // Mapear tab param a id de tab-pane
+        const tabMap = {
+            'alumnos': 'alumnos',
+            'usuarios': 'usuarios',
+            'centros': 'centros',
+            'universidades': 'unis',
+            'unis': 'unis',
+            'carreras': 'carreras'
+        };
+        const targetId = tabMap[tab] || tab;
+        
+        // Desactivar todas
+        document.querySelectorAll('.nav-tabs .nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-content .tab-pane').forEach(el => {
+            el.classList.remove('show','active');
+        });
+        
+        // Activar la correspondiente
+        const navLink = document.querySelector(`.nav-tabs a[href="#${targetId}"]`);
+        const pane = document.getElementById(targetId);
+        if(navLink && pane){
+            navLink.classList.add('active');
+            pane.classList.add('show','active');
+        } else {
+            // Fallback: si no encuentra, activar usuarios si tab es usuarios
+            if(tab === 'usuarios'){
+                const fallbackNav = document.querySelector('.nav-tabs a[href="#usuarios"]');
+                const fallbackPane = document.getElementById('usuarios');
+                if(fallbackNav && fallbackPane){
+                    fallbackNav.classList.add('active');
+                    fallbackPane.classList.add('show','active');
+                }
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}
+{% block content %}
+
+<div class="row mb-3">
+<div class="col-12">
+<button class="btn btn-primary" data-toggle="modal" data-target="#crearUsuarioModal"><i class="fas fa-plus"></i> Crear Usuario (Supervisor/Administrador)</button>
+</div>
+</div>
+
+<ul class="nav nav-tabs" id="adminTabs" role="tablist">
+<li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#alumnos">Alumnos ({{ alumnos|length }})</a></li>
+<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#usuarios">Usuarios ({{ users_alumnos|length + users_supervisores|length }})</a></li>
+<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#centros">Centros</a></li>
+<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#unis">Universidades</a></li>
+<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#carreras">Carreras</a></li>
+</ul>
+
+<div class="tab-content mt-3">
+<!-- ALUMNOS TAB -->
+<div class="tab-pane fade show active" id="alumnos">
+<div class="card"><div class="card-header"><h3 class="card-title">Becarios registrados</h3></div>
+<div class="card-body">
+<table class="table table-bordered datatable"><thead><tr><th>Cedula</th><th>Apellidos Nombres</th><th>Universidad</th><th>Carrera</th><th>Centro</th><th>Pais</th><th>Semestre</th><th>Beca</th><th>Estado</th><th>Ver</th></tr></thead><tbody>
+{% for a in alumnos %}
+<tr><td>{{ a.cedula }}</td><td>{{ a.apellidos }} {{ a.nombres }}</td><td>{{ a.universidad.nombre if a.universidad else '' }}</td><td>{{ a.carrera.nombre if a.carrera else '' }}</td><td>{{ a.centro.nombre if a.centro else '' }}</td><td><span class="badge badge-info">{{ a.pais }}</span></td><td>{{ a.semestre }}</td><td>{{ a.beca }} - {{ a.tipo_beca }}</td><td>{{ a.estado }}</td><td><a href="/alumno/detalle/{{ a.id }}" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></a></td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+</div>
+
+
+<!-- USUARIOS TAB - SOLO SUPERVISOR Y ADMIN -->
+<div class="tab-pane fade" id="usuarios">
+<div class="card"><div class="card-header"><h3 class="card-title">Usuarios - Solo Supervisor y Administrador</h3></div><div class="card-body">
+<table class="table table-bordered datatable"><thead><tr><th>ID</th><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Acciones</th></tr></thead><tbody>
+{% for u in users_supervisores %}
+<tr><td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.nombre }} {{ u.apellidos }}</td><td>{% if u.rol == 'admin' %}<span class="badge badge-danger">Admin</span>{% else %}<span class="badge badge-warning">Supervisor</span>{% endif %}</td>
+<td>
+<button class="btn btn-sm btn-warning" onclick="abrirEditarUser({{ u.id }}, '{{ u.nombre }}', '{{ u.apellidos }}')"><i class="fas fa-pencil-alt"></i></button>
+<a href="#" onclick="confirmDelete('/admin/usuarios/{{ u.id }}/eliminar','Eliminar usuario?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+</div>
+
+
+<!-- CENTROS TAB -->
+
+<div class="tab-pane fade" id="centros">
+<div class="card"><div class="card-header"><h3 class="card-title">Centros - <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#crearCentroModal">Crear Centro</button></h3></div>
+<div class="card-body">
+<table class="table table-bordered datatable"><thead><tr><th>ID</th><th>Nombre</th><th>Acciones</th></tr></thead><tbody>
+{% for c in centros %}
+<tr><td>{{ c.id }}</td><td>{{ c.nombre }}</td><td>
+<button class="btn btn-sm btn-warning" onclick="editarCentro({{ c.id }}, '{{ c.nombre }}')"><i class="fas fa-pencil-alt"></i></button>
+<a href="#" onclick="confirmDelete('/admin/centros/{{ c.id }}/eliminar','Eliminar?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+</div>
+
+<!-- UNIS TAB -->
+<div class="tab-pane fade" id="unis">
+<div class="card"><div class="card-header"><h3 class="card-title">Universidades - <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#crearUniModal">Crear Universidad</button></h3></div>
+<div class="card-body">
+<table class="table table-bordered datatable"><thead><tr><th>ID</th><th>Nombre</th><th>Acciones</th></tr></thead><tbody>
+{% for u in universidades %}
+<tr><td>{{ u.id }}</td><td>{{ u.nombre }}</td><td>
+<button class="btn btn-sm btn-warning" onclick="editarUni({{ u.id }}, '{{ u.nombre }}')"><i class="fas fa-pencil-alt"></i></button>
+<a href="#" onclick="confirmDelete('/admin/universidades/{{ u.id }}/eliminar','Eliminar?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+</div>
+
+<!-- CARRERAS TAB -->
+<div class="tab-pane fade" id="carreras">
+<div class="card"><div class="card-header"><h3 class="card-title">Carreras - <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#crearCarreraModal">Crear Carrera</button></h3></div>
+<div class="card-body">
+<table class="table table-bordered datatable"><thead><tr><th>ID</th><th>Nombre</th><th>Acciones</th></tr></thead><tbody>
+{% for c in carreras %}
+<tr><td>{{ c.id }}</td><td>{{ c.nombre }}</td><td>
+<button class="btn btn-sm btn-warning" onclick="editarCarrera({{ c.id }}, '{{ c.nombre }}')"><i class="fas fa-pencil-alt"></i></button>
+<a href="#" onclick="confirmDelete('/admin/carreras/{{ c.id }}/eliminar','Eliminar?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+</div>
+
+</div>
+
+<!-- MODAL CREAR USUARIO CON OJITO A LA DERECHA Y ROL -->
+<div class="modal fade" id="crearUsuarioModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Crear Usuario</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form action="/admin/usuarios/crear" method="post">
+<div class="modal-body">
+<div class="form-group"><label>Usuario *</label><input type="text" name="username" class="form-control" required></div>
+<div class="form-group"><label>Contraseña *</label><div class="input-group"><input type="password" name="password" id="createPass" class="form-control" required><div class="input-group-append"><div class="input-group-text" style="cursor:pointer" onclick="togglePass('createPass','createEye')"><i id="createEye" class="fas fa-eye"></i></div></div></div></div>
+<div class="form-group"><label>Nombre *</label><input type="text" name="nombre" class="form-control" required></div>
+<div class="form-group"><label>Apellidos *</label><input type="text" name="apellidos" class="form-control" required></div>
+<div class="form-group"><label>Rol *</label><select name="rol" class="form-control" required><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>
+</form>
+</div></div></div>
+
+<!-- MODAL EDITAR USUARIO -->
+<div class="modal fade" id="editarUserModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Editar Usuario - <span id="editUserLabel"></span></h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form id="formEditarUser" method="post">
+<div class="modal-body">
+<div class="form-group"><label>Nombre</label><input type="text" name="nombre" id="editNombre" class="form-control" required></div>
+<div class="form-group"><label>Apellidos</label><input type="text" name="apellidos" id="editApellidos" class="form-control" required></div>
+<div class="form-group"><label>Nueva Contraseña (vacío = no cambia)</label><div class="input-group"><input type="password" name="new_password" id="editPassUser" class="form-control"><div class="input-group-append"><div class="input-group-text" style="cursor:pointer" onclick="togglePass('editPassUser','editEyeUser')"><i id="editEyeUser" class="fas fa-eye"></i></div></div></div>
+<small class="text-muted">Puedes cambiar contraseña del admin también.</small>
+</div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-warning">Actualizar</button></div>
+</form>
+</div></div></div>
+
+<!-- MODALS CENTROS/UNIS/CARRERAS -->
+<div class="modal fade" id="crearCentroModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Crear Centro</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form action="/admin/centros/crear" method="post"><div class="modal-body"><input type="text" name="nombre" class="form-control" required placeholder="WARINTS, YAWI..."></div><div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar</button></div></form>
+</div></div></div>
+
+<div class="modal fade" id="crearUniModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Crear Universidad</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form action="/admin/universidades/crear" method="post"><div class="modal-body"><input type="text" name="nombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar</button></div></form>
+</div></div></div>
+
+<div class="modal fade" id="crearCarreraModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Crear Carrera</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form action="/admin/carreras/crear" method="post"><div class="modal-body"><input type="text" name="nombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar</button></div></form>
+</div></div></div>
+
+<!-- EDITAR MAESTRAS -->
+<div class="modal fade" id="editarCentroModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Editar Centro</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form id="formEditarCentro" method="post"><div class="modal-body"><input type="text" name="nombre" id="editCentroNombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-warning">Actualizar</button></div></form>
+</div></div></div>
+
+<div class="modal fade" id="editarUniModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Editar Universidad</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form id="formEditarUni" method="post"><div class="modal-body"><input type="text" name="nombre" id="editUniNombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-warning">Actualizar</button></div></form>
+</div></div></div>
+
+<div class="modal fade" id="editarCarreraModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Editar Carrera</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form id="formEditarCarrera" method="post"><div class="modal-body"><input type="text" name="nombre" id="editCarreraNombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-warning">Actualizar</button></div></form>
+</div></div></div>
+
+<script>
+function togglePass(i,e){
+ const inp=document.getElementById(i); const eye=document.getElementById(e);
+ if(inp.type==='password'){inp.type='text'; eye.classList.remove('fa-eye'); eye.classList.add('fa-eye-slash');}
+ else{inp.type='password'; eye.classList.remove('fa-eye-slash'); eye.classList.add('fa-eye');}
+}
+function abrirEditarUser(id,nombre,apellidos){
+ document.getElementById('editNombre').value=nombre; document.getElementById('editApellidos').value=apellidos;
+ document.getElementById('formEditarUser').action='/admin/usuarios/'+id+'/editar';
+ $('#editarUserModal').modal('show');
+}
+function editarCentro(id,nombre){document.getElementById('editCentroNombre').value=nombre; document.getElementById('formEditarCentro').action='/admin/centros/'+id+'/editar'; $('#editarCentroModal').modal('show');}
+function editarUni(id,nombre){document.getElementById('editUniNombre').value=nombre; document.getElementById('formEditarUni').action='/admin/universidades/'+id+'/editar'; $('#editarUniModal').modal('show');}
+function editarCarrera(id,nombre){document.getElementById('editCarreraNombre').value=nombre; document.getElementById('formEditarCarrera').action='/admin/carreras/'+id+'/editar'; $('#editarCarreraModal').modal('show');}
+</script>
+
+
+
+
+<script>
+// FIX UNICO MENSAJE - USERNAME UNICO ADMIN
+document.addEventListener('DOMContentLoaded', function(){
+    const modal = document.getElementById('crearUsuarioModal');
+    if(!modal) return;
+    const userInput = modal.querySelector('input[name="username"]');
+    if(!userInput) return;
+
+    // Crear UN SOLO help si no existe
+    let help = document.getElementById('username_check_help');
+    if(!help){
+        help = document.createElement('small');
+        help.id = 'username_check_help';
+        help.className = 'form-text';
+        help.style.display = 'block';
+        userInput.parentNode.appendChild(help);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const usernameParam = urlParams.get('username');
+
+    function showError(msg){
+        help.textContent = '❌ ' + msg;
+        help.className = 'form-text text-danger';
+        help.style.display = 'block';
+        userInput.classList.add('is-invalid');
+        userInput.classList.remove('is-valid');
+    }
+    function showOk(msg){
+        help.textContent = '✓ ' + msg;
+        help.className = 'form-text text-success';
+        help.style.display = 'block';
+        userInput.classList.remove('is-invalid');
+        userInput.classList.add('is-valid');
+    }
+    function clearHelp(){
+        help.textContent = '';
+        help.style.display = 'none';
+        userInput.classList.remove('is-invalid','is-valid');
+    }
+
+    // Si viene error de backend ?error=username_exists
+    if(error === 'username_exists' && usernameParam){
+        userInput.value = usernameParam;
+        showError('El usuario "' + usernameParam + '" ya existe - elige otro');
+        if(typeof toastr !== 'undefined'){
+            toastr.error('El nombre de usuario "' + usernameParam + '" ya existe. Todos los nombres de usuarios deben ser únicos.', 'Usuario duplicado');
+        }
+        setTimeout(() => { $('#crearUsuarioModal').modal('show'); }, 400);
+        // Limpiar URL para que no se repita al recargar
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Live check mientras escribe
+    let timeout = null;
+    let lastChecked = '';
+    userInput.addEventListener('input', function(){
+        const val = this.value.trim();
+        if(val.length < 2){
+            clearHelp();
+            return;
+        }
+        if(val === lastChecked) return;
+        if(timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            lastChecked = val;
+            fetch('/admin/api/check-username?q=' + encodeURIComponent(val))
+                .then(r => r.json())
+                .then(data => {
+                    if(data.exists){
+                        showError('El usuario "' + data.username + '" ya existe - elige otro');
+                    } else {
+                        showOk('Usuario disponible');
+                    }
+                });
+        }, 400);
+    });
+
+    // Validar al guardar - si es invalido, bloquear y mostrar alerta unica
+    const formCrear = modal.querySelector('form');
+    if(formCrear){
+        formCrear.addEventListener('submit', function(e){
+            if(userInput.classList.contains('is-invalid')){
+                e.preventDefault();
+                showError('El usuario "' + userInput.value + '" ya existe - elige otro');
+                if(typeof toastr !== 'undefined'){
+                    toastr.error('El nombre de usuario "' + userInput.value + '" ya existe. Todos los nombres de usuarios deben ser únicos.', 'Usuario duplicado');
+                } else {
+                    alert('El nombre de usuario "' + userInput.value + '" ya existe. Todos los nombres de usuarios deben ser únicos.');
+                }
+                return false;
+            }
+        });
+    }
+
+    // Al cerrar modal, limpiar
+    $('#crearUsuarioModal').on('hidden.bs.modal', function () {
+        clearHelp();
+        // No limpiamos el valor para que pueda corregir, solo el mensaje si quiere
+    });
+});
+</script>
+
+
+<script>
+// FIX TAB PERSISTENCIA - Mantener pestaña activa despues de crear/eliminar
+document.addEventListener('DOMContentLoaded', function(){
+    const urlParams = new URLSearchParams(window.location.search);
+    let tab = urlParams.get('tab');
+    if(!tab){
+        // Si no hay tab pero hay error de username, ir a usuarios
+        const error = urlParams.get('error');
+        if(error && (error === 'username_exists' || error === 'username_empty')){
+            tab = 'usuarios';
+        }
+    }
+    if(tab){
+        // Mapear tab param a id de tab-pane
+        const tabMap = {
+            'alumnos': 'alumnos',
+            'usuarios': 'usuarios',
+            'centros': 'centros',
+            'universidades': 'unis',
+            'unis': 'unis',
+            'carreras': 'carreras'
+        };
+        const targetId = tabMap[tab] || tab;
+        
+        // Desactivar todas
+        document.querySelectorAll('.nav-tabs .nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-content .tab-pane').forEach(el => {
+            el.classList.remove('show','active');
+        });
+        
+        // Activar la correspondiente
+        const navLink = document.querySelector(`.nav-tabs a[href="#${targetId}"]`);
+        const pane = document.getElementById(targetId);
+        if(navLink && pane){
+            navLink.classList.add('active');
+            pane.classList.add('show','active');
+        } else {
+            // Fallback: si no encuentra, activar usuarios si tab es usuarios
+            if(tab === 'usuarios'){
+                const fallbackNav = document.querySelector('.nav-tabs a[href="#usuarios"]');
+                const fallbackPane = document.getElementById('usuarios');
+                if(fallbackNav && fallbackPane){
+                    fallbackNav.classList.add('active');
+                    fallbackPane.classList.add('show','active');
+                }
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}

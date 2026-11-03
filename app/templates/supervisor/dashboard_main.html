@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block header %}Dashboard - Resumen Becarios{% endblock %}
+{% block content %}
+
+<div class="row">
+<div class="col-lg-3 col-6"><div class="small-box bg-info"><div class="inner"><h3>{{ stats.total_personas }}</h3><p>Personas únicas</p></div><div class="icon"><i class="fas fa-users"></i></div></div></div>
+<div class="col-lg-3 col-6"><div class="small-box bg-success"><div class="inner"><h3>{{ stats.total_carreras }}</h3><p>Total Carreras/Matrículas</p></div><div class="icon"><i class="fas fa-graduation-cap"></i></div></div></div>
+<div class="col-lg-3 col-6"><div class="small-box bg-warning"><div class="inner"><h3>{{ stats.total_notas }}</h3><p>Bloques Notas</p></div><div class="icon"><i class="fas fa-book"></i></div></div></div>
+<div class="col-lg-3 col-6"><div class="small-box bg-danger"><div class="inner"><h3>${{ "%.2f"|format(stats.total_monto) }}</h3><p>Total $ Pagado ({{ stats.total_pagos }} pagos)</p></div><div class="icon"><i class="fas fa-dollar-sign"></i></div></div></div>
+</div>
+
+<div class="row">
+<div class="col-md-4"><div class="card"><div class="card-header"><h3 class="card-title">Por País</h3></div><div class="card-body"><canvas id="chartPais"></canvas></div></div></div>
+<div class="col-md-4"><div class="card"><div class="card-header"><h3 class="card-title">Por Estado</h3></div><div class="card-body"><canvas id="chartEstado"></canvas></div></div></div>
+<div class="col-md-4"><div class="card"><div class="card-header"><h3 class="card-title">Por Beca</h3></div><div class="card-body"><canvas id="chartBeca"></canvas></div></div></div>
+</div>
+
+<div class="row">
+<div class="col-md-6"><div class="card"><div class="card-header"><h3 class="card-title">Alumnos por Universidad</h3></div><div class="card-body"><canvas id="chartUni"></canvas></div></div></div>
+<div class="col-md-6"><div class="card"><div class="card-header"><h3 class="card-title">Alumnos por Carrera</h3></div><div class="card-body"><canvas id="chartCarrera"></canvas></div></div></div>
+</div>
+
+<div class="row">
+<div class="col-md-6"><div class="card"><div class="card-header"><h3 class="card-title">Por Centro</h3></div><div class="card-body"><canvas id="chartCentro"></canvas></div></div></div>
+<div class="col-md-6"><div class="card"><div class="card-header"><h3 class="card-title">Por Semestre (número)</h3></div><div class="card-body"><canvas id="chartSem"></canvas></div></div></div>
+</div>
+
+<div class="row">
+<div class="col-md-4"><div class="card"><div class="card-header"><h3 class="card-title">Últimos alumnos (5)</h3></div><div class="card-body"><table class="table table-sm"><tr><th>Cedula</th><th>Nombre</th></tr>{% for a in ultimos_alumnos %}<tr><td>{{ a.cedula }}</td><td>{{ a.apellidos }} {{ a.nombres }}</td></tr>{% endfor %}</table></div></div></div>
+<div class="col-md-4"><div class="card"><div class="card-header"><h3 class="card-title">Últimas notas (5)</h3></div><div class="card-body"><table class="table table-sm"><tr><th>Alumno</th><th>Sem</th></tr>{% for r in ultimas_notas %}<tr><td>{{ r.alumno_id }}</td><td>{{ r.semestre }}</td></tr>{% endfor %}</table></div></div></div>
+<div class="col-md-4"><div class="card"><div class="card-header"><h3 class="card-title">Últimos pagos (5)</h3></div><div class="card-body"><table class="table table-sm"><tr><th>Alumno</th><th>Comp</th></tr>{% for r in ultimos_pagos %}<tr><td>{{ r.alumno_id }}</td><td>{{ r.numero_comprobantes }}</td></tr>{% endfor %}</table></div></div></div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const paisLabels = [{% for p in stats.por_pais %}"{{ p[0] }}",{% endfor %}];
+const paisData = [{% for p in stats.por_pais %}{{ p[1] }},{% endfor %}];
+const estadoLabels = [{% for e in stats.por_estado %}"{{ e[0] }}",{% endfor %}];
+const estadoData = [{% for e in stats.por_estado %}{{ e[1] }},{% endfor %}];
+const becaLabels = [{% for b in stats.por_beca %}"{{ b[0] }}",{% endfor %}];
+const becaData = [{% for b in stats.por_beca %}{{ b[1] }},{% endfor %}];
+const uniLabels = [{% for u in stats.por_universidad %}"{{ u[0][:20] }}",{% endfor %}];
+const uniData = [{% for u in stats.por_universidad %}{{ u[1] }},{% endfor %}];
+const carreraLabels = [{% for c in stats.por_carrera %}"{{ c[0][:20] }}",{% endfor %}];
+const carreraData = [{% for c in stats.por_carrera %}{{ c[1] }},{% endfor %}];
+const centroLabels = [{% for c in stats.por_centro %}"{{ c[0] }}",{% endfor %}];
+const centroData = [{% for c in stats.por_centro %}{{ c[1] }},{% endfor %}];
+const semLabels = [{% for s in stats.por_semestre %}"Sem {{ s[0] }}",{% endfor %}];
+const semData = [{% for s in stats.por_semestre %}{{ s[1] }},{% endfor %}];
+
+new Chart(document.getElementById('chartPais'), {type:'doughnut', data:{labels:paisLabels, datasets:[{data:paisData, backgroundColor:['#00c0ef','#00a65a','#f39c12','#dd4b39']}]}});
+new Chart(document.getElementById('chartEstado'), {type:'pie', data:{labels:estadoLabels, datasets:[{data:estadoData, backgroundColor:['#00a65a','#f39c12','#dd4b39']}]}});
+new Chart(document.getElementById('chartBeca'), {type:'pie', data:{labels:becaLabels, datasets:[{data:becaData, backgroundColor:['#3c8dbc','#00c0ef','#d2d6de']}]}});
+new Chart(document.getElementById('chartUni'), {type:'bar', data:{labels:uniLabels, datasets:[{label:'Alumnos', data:uniData, backgroundColor:'#00a65a'}]}, options:{indexAxis:'y'}});
+new Chart(document.getElementById('chartCarrera'), {type:'bar', data:{labels:carreraLabels, datasets:[{label:'Alumnos', data:carreraData, backgroundColor:'#3c8dbc'}]}, options:{indexAxis:'y'}});
+new Chart(document.getElementById('chartCentro'), {type:'bar', data:{labels:centroLabels, datasets:[{label:'Alumnos', data:centroData, backgroundColor:'#f39c12'}]}});
+new Chart(document.getElementById('chartSem'), {type:'bar', data:{labels:semLabels, datasets:[{label:'Alumnos', data:semData, backgroundColor:'#dd4b39'}]}});
+</script>
+{% endblock %}

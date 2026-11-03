@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lowell Becarios - Login</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
+<style>
+body{background:linear-gradient(135deg,#6e8efb,#a777e3);height:100vh;display:flex;align-items:center;justify-content:center}
+.login-box{width:360px}
+.card{border-radius:15px}
+</style>
+</head>
+<body>
+<div class="login-box">
+<div class="card p-4">
+<div class="text-center mb-3">
+<h4>📚 Lowell Becarios</h4>
+<p class="text-muted">Notas y Pagos - $</p>
+</div>
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<form method="post" action="/login">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<div class="input-group mb-3">
+<input type="text" name="username" class="form-control" placeholder="Usuario" required value="{{ request.cookies.get('username','') }}">
+<div class="input-group-append"><div class="input-group-text"><span class="fas fa-user"></span></div></div>
+</div>
+<div class="input-group mb-3">
+<input type="password" name="password" class="form-control" placeholder="Contraseña" required>
+<div class="input-group-append"><div class="input-group-text"><span class="fas fa-lock"></span></div></div>
+</div>
+<button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+</form>
+</div>
+</div>
+</body>
+</html>

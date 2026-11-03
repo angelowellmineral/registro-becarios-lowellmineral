@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block header %}Detalle Becario: {{ alumno.carrera.nombre if alumno.carrera else '' }} - {{ alumno.nombres }} {{ alumno.apellidos }}{% endblock %}
+{% block content %}
+<div class="card card-primary">
+<div class="card-header"><h3 class="card-title">Cabecera del Registro</h3></div>
+<div class="card-body">
+<div class="row">
+<div class="col-md-3"><b>Alumno:</b> {{ alumno.nombres }} {{ alumno.apellidos }}</div>
+<div class="col-md-3"><b>Universidad:</b> {{ alumno.universidad.nombre if alumno.universidad else '' }}</div>
+<div class="col-md-2"><b>Carrera:</b> {{ alumno.carrera.nombre if alumno.carrera else '' }}</div>
+<div class="col-md-2"><b>País:</b> <span class="badge badge-info">{{ alumno.pais }}</span></div>
+<div class="col-md-2"><b>Semestre:</b> {{ alumno.semestre }} (Actual: {{ alumno.actual_semestre }})</div>
+</div>
+<div class="row mt-2">
+<div class="col-md-3"><b>Centro:</b> {{ alumno.centro.nombre if alumno.centro else '' }}</div>
+<div class="col-md-2"><b>Beca:</b> {{ alumno.beca }} - {{ alumno.tipo_beca }}</div>
+<div class="col-md-2"><b>Genero:</b> {{ alumno.genero }}</div>
+<div class="col-md-2"><b>Estado:</b> {{ alumno.estado }}</div>
+<div class="col-md-3"><b>Cedula:</b> {{ alumno.cedula }} | <b>Celular:</b> {{ alumno.celular }}</div>
+</div>
+</div>
+<div class="card-footer">
+{% if user.rol == 'admin' %}
+<a href="/admin" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver a Admin</a>
+{% elif user.rol == 'supervisor' %}
+<a href="/supervisor" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver a Mis Alumnos</a>
+{% else %}
+<a href="/alumno" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+{% endif %}
+</div>
+</div>
+
+{% set registros_notas = alumno.registros_notas %}
+{% set registros_pagos = alumno.registros_pagos %}
+
+{% include "alumno/_bloques_notas_pagos.html" %}
+
+{% endblock %}

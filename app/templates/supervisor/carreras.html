@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block header %}Panel Supervisor - Carreras{% endblock %}
+{% block content %}
+
+<div class="card"><div class="card-header"><h3 class="card-title">Carreras registradas ({{ alumnos|length }}) - Vista para reportes</h3>
+<!-- <div class="card-tools"><a href="/supervisor/export/carreras/excel" class="btn btn-sm btn-success"><i class="fas fa-file-excel"></i> Excel Carreras</a></div> -->
+</div>
+<div class="card-body">
+<div class="mb-2"><a href="/supervisor/export/carreras/excel" class="btn btn-success"><i class="fas fa-download"></i> Descargar Excel Carreras</a> <!-- <small class="text-muted ml-2">15 columnas completas según lo pedido (sin celular/genero)</small> --> </div>
+<table class="table table-bordered datatable"><thead><tr><th>Cedula</th><th>Nombre</th><th>Universidad</th><th>Carrera</th><th>Pais</th><th>Semestre</th><th>Beca</th><th>Centro</th><th>Acciones</th></tr></thead><tbody>
+{% for a in alumnos %}
+<tr><td>{{ a.cedula }}</td><td>{{ a.apellidos }} {{ a.nombres }}</td><td>{{ a.universidad.nombre if a.universidad else '' }}</td><td>{{ a.carrera.nombre if a.carrera else '' }}</td><td>{{ a.pais }}</td><td>{{ a.semestre }} ({{ a.actual_semestre }})</td><td>{{ a.beca }} - {{ a.tipo_beca }}</td><td>{{ a.centro.nombre if a.centro else '' }}</td>
+<td>
+<a href="/alumno/detalle/{{ a.id }}" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></a>
+<button class="btn btn-sm btn-warning" onclick="abrirEditarCarrera({{ a.id }}, '{{ a.cedula }}', {{ a.universidad_id }}, {{ a.carrera_id }}, {{ a.centro_id }}, '{{ a.actual_semestre }}', {{ a.semestre }}, '{{ a.beca }}', '{{ a.tipo_beca }}', '{{ a.estado }}', '{{ a.alimentacion }}', '{{ a.arriendo }}', '{{ a.matricula }}')"><i class="fas fa-pencil-alt"></i></button>
+<a href="#" onclick="confirmDelete('/supervisor/alumnos/{{ a.id }}/eliminar','Eliminar esta carrera?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+
+<div class="modal fade" id="editarCarreraModal"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5>Editar Carrera - Cedula <span id="editCarreraCedula"></span></h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form id="formEditarCarrera" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<div class="modal-body">
+<div class="row"><div class="col-md-4"><div class="form-group"><label>Estado *</label><select name="estado" id="editEstado" class="form-control" required><option value="Activo">Activo</option><option value="Graduado">Graduado</option><option value="Suspendido">Suspendido</option></select></div></div>
+<div class="col-md-4"><div class="form-group"><label>Centro *</label><select name="centro_id" id="editCentro" class="form-control" required>{% for c in centros %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div></div></div>
+<h6>Datos Académicos</h6>
+<div class="row"><div class="col-md-6"><div class="form-group"><label>Universidad *</label><select name="universidad_id" id="editUni" class="form-control" required>{% for u in universidades %}<option value="{{ u.id }}">{{ u.nombre }}</option>{% endfor %}</select></div></div>
+<div class="col-md-6"><div class="form-group"><label>Carrera *</label><select name="carrera_id" id="editCar" class="form-control" required>{% for c in carreras %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div></div></div>
+<div class="row"><div class="col-md-3"><div class="form-group"><label>Actual Semestre *</label><input type="text" name="actual_semestre" id="editActual" class="form-control" required></div></div>
+<div class="col-md-3"><div class="form-group"><label>Semestre (numero) *</label><input type="number" name="semestre" id="editSem" class="form-control" required></div></div>
+<div class="col-md-3"><div class="form-group"><label>Beca *</label><select name="beca" id="editBeca" class="form-control" required><option value="UNIVERSITARIA">UNIVERSITARIA</option><option value="CORTA">CORTA</option><option value="CUARTO NIVEL">CUARTO NIVEL</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Tipo Beca *</label><select name="tipo_beca" id="editTipoBeca" class="form-control" required><option value="PARCIAL">PARCIAL</option><option value="COMPLETA">COMPLETA</option><option value="UNICO PAGO">UNICO PAGO</option></select></div></div></div>
+<div class="row"><div class="col-md-3"><div class="form-group"><label>Alimentacion</label><select name="alimentacion" id="editAlim" class="form-control"><option value="SI">SI</option><option value="NO">NO</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Arriendo</label><select name="arriendo" id="editArri" class="form-control"><option value="SI">SI</option><option value="NO">NO</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Matricula</label><select name="matricula" id="editMat" class="form-control"><option value="SI">SI</option><option value="NO">NO</option></select></div></div></div>
+<div class="form-group"><label>Observacion</label><textarea name="observacion" id="editObs" class="form-control"></textarea></div>
+<div class="form-group"><label>Nueva Contraseña (vacío = no cambia la del alumno)</label><input type="password" name="new_password" class="form-control"></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-warning">Actualizar Carrera</button></div>
+</form>
+</div></div></div>
+
+<script>
+function abrirEditarCarrera(id, cedula, uni_id, car_id, centro_id, actual, sem, beca, tipoBeca, estado, alim, arri, mat){
+ document.getElementById('editCarreraCedula').innerText=cedula;
+ document.getElementById('editUni').value=uni_id;
+ document.getElementById('editCar').value=car_id;
+ document.getElementById('editCentro').value=centro_id;
+ document.getElementById('editActual').value=actual;
+ document.getElementById('editSem').value=sem;
+ document.getElementById('editBeca').value=beca;
+ document.getElementById('editTipoBeca').value=tipoBeca;
+ document.getElementById('editEstado').value=estado;
+ document.getElementById('editAlim').value=alim;
+ document.getElementById('editArri').value=arri;
+ document.getElementById('editMat').value=mat;
+ document.getElementById('formEditarCarrera').action='/supervisor/alumnos/'+id+'/editar';
+ $('#editarCarreraModal').modal('show');
+}
+</script>
+{% endblock %}

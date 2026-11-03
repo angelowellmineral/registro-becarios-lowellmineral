@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block header %}Panel Supervisor - Mis Alumnos (Personas){% endblock %}
+{% block content %}
+
+<div class="row mb-3"><div class="col-12">
+<button class="btn btn-primary" data-toggle="modal" data-target="#crearAlumnoFullModal"><i class="fas fa-plus"></i> Registrar Alumno Completo</button>
+<button class="btn btn-sm btn-info" data-toggle="modal" data-target="#crearCentroModal">+ Centro</button>
+<button class="btn btn-sm btn-info" data-toggle="modal" data-target="#crearUniModal">+ Universidad</button>
+<button class="btn btn-sm btn-info" data-toggle="modal" data-target="#crearCarreraModal">+ Carrera</button>
+</div></div>
+
+<div class="card"><div class="card-header"><h3 class="card-title">Alumnos - Personas únicas ({{ personas|length }})</h3><small class="ml-2">Solo datos personales. Si eliminas, se eliminan todas sus carreras.</small>
+</div>
+<div class="card-body">
+<div class="mb-2"><a href="/supervisor/export/personas/excel" class="btn btn-success"><i class="fas fa-download"></i> Descargar Excel Personas</a></div>
+<table class="table table-bordered datatable"><thead><tr><th>Cedula</th><th>Usuario</th><th>Apellidos Nombres</th><th>Celular</th><th>Genero</th><th>Pais</th><th>Carreras</th><th>Acciones</th></tr></thead><tbody>
+{% for p in personas %}
+<tr>
+<td>{{ p.alumno.cedula if p.alumno else '' }}</td>
+<td>{{ p.user.username }}</td>
+<td>{{ p.alumno.apellidos if p.alumno else p.user.apellidos }} {{ p.alumno.nombres if p.alumno else p.user.nombre }}</td>
+<td>{{ p.alumno.celular if p.alumno else '' }}</td>
+<td>{{ p.alumno.genero if p.alumno else '' }}</td>
+<td>{{ p.alumno.pais if p.alumno else '' }}</td>
+<td><span class="badge badge-info">{{ p.total_carreras }} carrera(s)</span></td>
+<td>
+<button class="btn btn-sm btn-warning" onclick="abrirEditarPersona({{ p.user.id }}, '{{ p.user.username }}', '{{ p.alumno.apellidos if p.alumno else '' }}', '{{ p.alumno.nombres if p.alumno else '' }}', '{{ p.alumno.cedula if p.alumno else '' }}', '{{ p.alumno.celular if p.alumno else '' }}', '{{ p.alumno.genero if p.alumno else 'M' }}', '{{ p.alumno.pais if p.alumno else 'Ecuador' }}')"><i class="fas fa-pencil-alt"></i></button>
+<a href="#" onclick="confirmDelete('/supervisor/persona/{{ p.user.id }}/eliminar','Eliminar persona y TODAS sus carreras?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+</td>
+</tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+
+<div class="modal fade" id="crearAlumnoFullModal"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5>Registrar Alumno - Datos Completos Matriz</h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form action="/supervisor/alumnos/crear" method="post" id="formCrearAlumno">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<div class="modal-body">
+<h6>Datos de Acceso</h6>
+<div class="row"><div class="col-md-4"><div class="form-group"><label>Usuario *</label><input type="text" name="username" id="alumno_username_input" class="form-control" required><small id="alumno_username_help" class="form-text" style="display:none;"></small></div></div>
+<div class="col-md-4"><div class="form-group"><label>Contraseña *</label><div class="input-group"><input type="password" name="password" id="supPass" class="form-control" required><div class="input-group-append"><div class="input-group-text" style="cursor:pointer" onclick="togglePass('supPass','supEye')"><i id="supEye" class="fas fa-eye"></i></div></div></div></div></div>
+<div class="col-md-4"><div class="form-group"><label>Celular</label><input type="text" name="celular" class="form-control"></div></div></div>
+<h6>Datos Personales</h6>
+<div class="row"><div class="col-md-4"><div class="form-group"><label>Apellidos *</label><input type="text" name="apellidos" class="form-control" required></div></div>
+<div class="col-md-4"><div class="form-group"><label>Nombres *</label><input type="text" name="nombres" class="form-control" required></div></div>
+<div class="col-md-4"><div class="form-group"><label>Cedula *</label><input type="text" name="cedula" class="form-control" required></div></div></div>
+<div class="row"><div class="col-md-3"><div class="form-group"><label>Genero *</label><select name="genero" class="form-control" required><option value="M">M</option><option value="F">F</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Pais *</label><select name="pais" class="form-control" required><option value="Ecuador">Ecuador</option><option value="Peru">Peru</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Estado *</label><select name="estado" class="form-control" required><option value="Activo">Activo</option><option value="Graduado">Graduado</option><option value="Suspendido">Suspendido</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Centro *</label><select name="centro_id" class="form-control" required>{% for c in centros %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div></div></div>
+<h6>Datos Académicos</h6>
+<div class="row">
+<div class="col-md-6">
+<div class="form-group position-relative">
+<label>Universidad * <small class="text-muted">(escribe para buscar)</small></label>
+<input type="text" id="uni_search" class="form-control" placeholder="Escribe Universidad Estatal Amazónica..." autocomplete="off" required>
+<input type="hidden" name="universidad_id" id="universidad_id" required>
+<div id="uni_suggestions" class="list-group position-absolute w-100" style="z-index:1050; max-height:200px; overflow-y:auto; display:none;"></div>
+<small id="uni_help" class="form-text text-muted">Debes seleccionar una opción de la lista</small>
+</div>
+</div>
+<div class="col-md-6">
+<div class="form-group position-relative">
+<label>Carrera * <small class="text-muted">(escribe para buscar)</small></label>
+<input type="text" id="car_search" class="form-control" placeholder="Escribe Ingeniería Ambiental..." autocomplete="off" required>
+<input type="hidden" name="carrera_id" id="carrera_id" required>
+<div id="car_suggestions" class="list-group position-absolute w-100" style="z-index:1050; max-height:200px; overflow-y:auto; display:none;"></div>
+<small id="car_help" class="form-text text-muted">Debes seleccionar una opción de la lista</small>
+</div>
+</div>
+</div>
+<div class="row"><div class="col-md-3"><div class="form-group"><label>Actual Semestre *</label><input type="text" name="actual_semestre" class="form-control" placeholder="Tercero, Cuarto..." required></div></div>
+<div class="col-md-3"><div class="form-group"><label>Semestre (numero) *</label><input type="number" name="semestre" class="form-control" min="1" required placeholder="8, 10..."></div></div>
+<div class="col-md-3"><div class="form-group"><label>Inicia Beca</label><input type="date" name="inicia_beca" class="form-control"></div></div>
+<div class="col-md-3"><div class="form-group"><label>Beca *</label><select name="beca" class="form-control" required><option value="UNIVERSITARIA">UNIVERSITARIA</option><option value="CORTA">CORTA</option><option value="CUARTO NIVEL">CUARTO NIVEL</option></select></div></div></div>
+<div class="row"><div class="col-md-3"><div class="form-group"><label>Tipo Beca *</label><select name="tipo_beca" class="form-control" required><option value="PARCIAL">PARCIAL</option><option value="COMPLETA">COMPLETA</option><option value="UNICO PAGO">UNICO PAGO</option></select></div></div>
+<div class="col-md-3"><div class="form-group"><label>Alimentacion</label><select name="alimentacion" class="form-control"><option value="SI">SI</option><option value="NO">NO</option></select></div></div>
+<div class="col-md-2"><div class="form-group"><label>Arriendo</label><select name="arriendo" class="form-control"><option value="SI">SI</option><option value="NO">NO</option></select></div></div>
+<div class="col-md-2"><div class="form-group"><label>Matricula</label><select name="matricula" class="form-control"><option value="SI">SI</option><option value="NO">NO</option></select></div></div></div>
+<div class="form-group"><label>Observacion</label><textarea name="observacion" class="form-control"></textarea></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Registrar Alumno</button></div>
+</form>
+</div></div></div>
+
+<div class="modal fade" id="editarPersonaModal"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>Editar Persona - <span id="editPersonaLabel"></span></h5><button class="close" data-dismiss="modal">&times;</button></div>
+<form id="formEditarPersona" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<div class="modal-body">
+<div class="alert alert-info py-2"><i class="fas fa-user"></i> Usuario: <strong id="editPUsernameDisplay"></strong> <small class="text-muted">(no editable)</small></div>
+<div class="row"><div class="col-md-6"><div class="form-group"><label>Apellidos</label><input type="text" name="apellidos" id="editPApellidos" class="form-control" required></div></div><div class="col-md-6"><div class="form-group"><label>Nombres</label><input type="text" name="nombres" id="editPNombres" class="form-control" required></div></div></div>
+<div class="row"><div class="col-md-6"><div class="form-group"><label>Cedula</label><input type="text" name="cedula" id="editPCedula" class="form-control" required></div></div><div class="col-md-6"><div class="form-group"><label>Celular</label><input type="text" name="celular" id="editPCelular" class="form-control"></div></div></div>
+<div class="row"><div class="col-md-6"><div class="form-group"><label>Genero</label><select name="genero" id="editPGenero" class="form-control"><option value="M">M</option><option value="F">F</option></select></div></div><div class="col-md-6"><div class="form-group"><label>Pais</label><select name="pais" id="editPPais" class="form-control"><option value="Ecuador">Ecuador</option><option value="Peru">Peru</option></select></div></div></div>
+<div class="form-group"><label>Nueva Contraseña (vacío = no cambia)</label><input type="password" name="new_password" class="form-control"></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-warning">Actualizar Persona</button></div>
+</form>
+</div></div></div>
+
+<div class="modal fade" id="crearCentroModal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Crear Centro</h5><button class="close" data-dismiss="modal">&times;</button></div><form action="/admin/centros/crear" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="modal-body"><input type="text" name="nombre" class="form-control" required placeholder="WARINTS, YAWI..."></div><div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div></div>
+<div class="modal fade" id="crearUniModal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Crear Universidad</h5><button class="close" data-dismiss="modal">&times;</button></div><form action="/admin/universidades/crear" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="modal-body"><input type="text" name="nombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div></div>
+<div class="modal fade" id="crearCarreraModal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Crear Carrera</h5><button class="close" data-dismiss="modal">&times;</button></div><form action="/admin/carreras/crear" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="modal-body"><input type="text" name="nombre" class="form-control" required></div><div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div></div>
+
+<script>
+function abrirEditarPersona(id, username, apellidos, nombres, cedula, celular, genero, pais){
+ document.getElementById('editPUsernameDisplay').innerText=username;
+ document.getElementById('editPApellidos').value=apellidos;
+ document.getElementById('editPNombres').value=nombres;
+ document.getElementById('editPCedula').value=cedula;
+ document.getElementById('editPCelular').value=celular;
+ document.getElementById('editPGenero').value=genero;
+ document.getElementById('editPPais').value=pais;
+ document.getElementById('editPersonaLabel').innerText=username;
+ document.getElementById('formEditarPersona').action='/supervisor/persona/'+id+'/editar';
+ $('#editarPersonaModal').modal('show');
+}
+function togglePass(id, eye){
+  const inp=document.getElementById(id);
+  const icon=document.getElementById(eye);
+  if(inp.type==='password'){ inp.type='text'; icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash'); }
+  else { inp.type='password'; icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
+}
+</script>
+
+<script>
+// AUTOCOMPLETE UNIVERSIDAD Y CARRERA
+let uniSelected = false;
+let carSelected = false;
+function setupAutocomplete(inputId, hiddenId, suggestionsId, helpId, url) {
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    const suggBox = document.getElementById(suggestionsId);
+    const help = document.getElementById(helpId);
+    if(!input || !hidden || !suggBox) return;
+    let timeout = null;
+    input.addEventListener('input', function(){
+        const q = this.value.trim();
+        hidden.value = '';
+        if(inputId==='uni_search') uniSelected=false;
+        if(inputId==='car_search') carSelected=false;
+        help.textContent = 'Debes seleccionar una opción de la lista';
+        help.className = 'form-text text-warning';
+        if(timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            fetch(url + '?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    suggBox.innerHTML = '';
+                    if(data.length===0){
+                        suggBox.innerHTML = '<div class="list-group-item text-danger">No se encontró coincidencia - registra primero en su tabla</div>';
+                        suggBox.style.display='block';
+                    } else {
+                        data.forEach(item => {
+                            const div = document.createElement('a');
+                            div.href='#';
+                            div.className='list-group-item list-group-item-action';
+                            div.textContent=item.nombre;
+                            div.addEventListener('click', function(e){
+                                e.preventDefault();
+                                input.value=item.nombre;
+                                hidden.value=item.id;
+                                if(inputId==='uni_search') uniSelected=true;
+                                if(inputId==='car_search') carSelected=true;
+                                suggBox.style.display='none';
+                                help.textContent='✓ Seleccionado: ' + item.nombre;
+                                help.className='form-text text-success';
+                            });
+                            suggBox.appendChild(div);
+                        });
+                        suggBox.style.display='block';
+                    }
+                });
+        }, 300);
+    });
+    document.addEventListener('click', function(e){
+        if(!input.contains(e.target) && !suggBox.contains(e.target)){
+            suggBox.style.display='none';
+        }
+    });
+    input.addEventListener('focus', function(){
+        this.dispatchEvent(new Event('input'));
+    });
+}
+
+// USERNAME UNICO - UN SOLO MENSAJE
+document.addEventListener('DOMContentLoaded', function(){
+    setupAutocomplete('uni_search','universidad_id','uni_suggestions','uni_help','/supervisor/buscar/universidades');
+    setupAutocomplete('car_search','carrera_id','car_suggestions','car_help','/supervisor/buscar/carreras');
+
+    const modal = document.getElementById('crearAlumnoFullModal');
+    if(!modal) return;
+    const userInput = document.getElementById('alumno_username_input');
+    if(!userInput) return;
+    let help = document.getElementById('alumno_username_help');
+    
+    function showError(msg){
+        help.textContent = '❌ ' + msg;
+        help.className = 'form-text text-danger';
+        help.style.display = 'block';
+        userInput.classList.add('is-invalid');
+        userInput.classList.remove('is-valid');
+    }
+    function showOk(msg){
+        help.textContent = '✓ ' + msg;
+        help.className = 'form-text text-success';
+        help.style.display = 'block';
+        userInput.classList.remove('is-invalid');
+        userInput.classList.add('is-valid');
+    }
+    function clearHelp(){
+        help.textContent = '';
+        help.style.display = 'none';
+        userInput.classList.remove('is-invalid','is-valid');
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const usernameParam = urlParams.get('username');
+
+    if(error === 'username_exists' && usernameParam){
+        userInput.value = usernameParam;
+        showError('El usuario "' + usernameParam + '" ya existe - todos los usuarios deben ser únicos');
+        if(typeof toastr !== 'undefined'){
+            toastr.error('El nombre de usuario "' + usernameParam + '" ya existe. Todos los nombres de usuarios deben ser únicos.', 'Usuario duplicado');
+        }
+        setTimeout(() => { $('#crearAlumnoFullModal').modal('show'); }, 400);
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    if(error === 'invalid_ref'){
+        if(typeof toastr !== 'undefined'){
+            toastr.error('Universidad, Carrera o Centro no válido. Debes seleccionar de la lista.', 'Datos inválidos');
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    let timeout = null;
+    let lastChecked = '';
+    userInput.addEventListener('input', function(){
+        const val = this.value.trim();
+        if(val.length < 2){ clearHelp(); return; }
+        if(val === lastChecked) return;
+        if(timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            lastChecked = val;
+            fetch('/supervisor/api/check-username?q=' + encodeURIComponent(val))
+                .then(r => r.json())
+                .then(data => {
+                    if(data.exists){ showError('El usuario "' + data.username + '" ya existe - todos los usuarios deben ser únicos'); }
+                    else { showOk('Usuario disponible'); }
+                });
+        }, 400);
+    });
+
+    const formCrear = document.getElementById('formCrearAlumno');
+    if(formCrear){
+        formCrear.addEventListener('submit', function(e){
+            const uniId = document.getElementById('universidad_id');
+            const carId = document.getElementById('carrera_id');
+            if((uniId && !uniId.value) || (carId && !carId.value)){
+                e.preventDefault();
+                alert('Debes seleccionar Universidad y Carrera de la lista. Si no aparece, registrala primero.');
+                return false;
+            }
+            if(userInput.classList.contains('is-invalid')){
+                e.preventDefault();
+                showError('El usuario "' + userInput.value + '" ya existe - todos los usuarios deben ser únicos');
+                if(typeof toastr !== 'undefined'){
+                    toastr.error('El nombre de usuario "' + userInput.value + '" ya existe. Todos los nombres de usuarios deben ser únicos.', 'Usuario duplicado');
+                }
+                return false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
