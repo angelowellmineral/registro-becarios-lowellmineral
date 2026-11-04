@@ -11,3 +11,5 @@ python-dotenv==1.0.0
 greenlet==3.0.3
 slowapi==0.1.9
 limits==3.8.0
+openpyxl==3.1.5
+et-xmlfile==1.1.0
