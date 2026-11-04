@@ -9,3 +9,5 @@ bcrypt==4.0.1
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
 greenlet==3.0.3
+slowapi==0.1.9
+limits==3.8.0
