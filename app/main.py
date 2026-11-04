@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from .database import engine, Base, SessionLocal
 from .routers import auth_router, admin_router, supervisor_router, alumno_router
 from . import models
-from .auth import hash_password
 import os
+import traceback
 
 Base.metadata.create_all(bind=engine)
 
@@ -31,9 +31,14 @@ def health():
 
 @app.get("/init-admin")
 def init_admin():
-    """Crea el admin inicial - BORRA ESTE ENDPOINT DESPUES DE USARLO"""
+    """Crea el admin inicial - segun models.py REAL (sin estado)"""
     db = SessionLocal()
     try:
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        def hash_password(pw):
+            return pwd_context.hash(pw)
+
         username = "admin_lowell"
         password = "Lowell2026!"
         
@@ -48,11 +53,13 @@ def init_admin():
                 password_hash=hash_password(password),
                 nombre="Angelo",
                 apellidos="Delgado",
-                rol="admin",
-                estado="activo"
+                rol="admin"
             )
             db.add(user)
             db.commit()
             return {"status": "creado", "username": username, "password": password}
+    except Exception as e:
+        tb = traceback.format_exc()
+        return JSONResponse(status_code=500, content={"error": str(e), "trace": tb})
     finally:
         db.close()
